@@ -23,49 +23,48 @@ class TSP:
         self.objf = fitness                # Objective function
 
         self.distanceMatrix = read_from_file(filename)
-        self.numCities = self.distanceMatrix.shape[0]         # Boundary of the domain, not intended to be changed.
+        self.numCities = self.distanceMatrix.shape[0]         # Boundary of the domain, not intended to be changed
+
+        # Initialize population
+        self.population = np.zeros((self.lambdaa, self.numCities-1)).astype(int)
+        for i in range(self.lambdaa):
+            self.population[i, :] = self.random_cycle()
 
     """ The main evolutionary algorithm loop """
     def optimize(self):
-
-        # Initialize population
-        population = np.zeros((self.lambdaa, self.numCities))
-        for i in range(self.lambdaa):
-            population[i, :] = self.random_cycle()
-
         for i in range(self.numIters):
             # The evolutionary algorithm
             start = time.time()
 
-            selected = self.selection(population, self.k)
+            selected = self.selection(self.population, self.k)
             offspring = self.crossover(selected)
-            joinedPopulation = np.vstack((self.mutation(offspring, self.alpha), population))    # joinedPopulation = polutation + children + mutated
-            population = self.elimination(joinedPopulation, self.lambdaa)                         # population = joinedPopulation - eliminated
+            joinedPopulation = np.vstack((self.mutation(offspring, self.alpha), self.population))    # joinedPopulation = polutation + children + mutated
+            self.population = self.elimination(joinedPopulation, self.lambdaa)                         # population = joinedPopulation - eliminated
 
             itT = time.time() - start
 
             # Show progress
-            fvals = np.array([self.objf(path) for path in population])
+            fvals = np.array([self.objf(path) for path in self.population])
             meanObj = np.mean(fvals)
             bestObj = np.min(fvals)
             print(f'{itT: .2f}s:\t Mean fitness = {meanObj: .5f} \t Best fitness = {bestObj: .5f}')
         print('Done')
 
-    def selection_kTour(population, k):
-        randIndices = random.choices(range(np.size(population, 0)), k=k)
-        best = np.argmin(pop_fitness(population[randIndices, :]))
-        return population[best, :]
+    def selection_kTour(self, population, k):
+        randIndices = random.choices(range(np.size(population,0)), k = k)
+        best = np.argmin(pop_fitness(population[randIndices, :], self.distanceMatrix))
+        return population[randIndices[best], :]
 
     """ Perform k-tournament selection to select pairs of parents. """
-    def selection(self, population, k):        # CHECK MU
-        selected = np.zeros((self.mu, self.numCities))
+    def selection(self, population, k):        
+        selected = np.zeros((self.mu, self.numCities - 1)).astype(int)
         for i in range(self.mu):
             selected[i, :] = self.selection_kTour(population, k)
         return selected
 
     """ Perform box crossover as in the slides. """
     def crossover(self, population, k):
-        offspring = np.zeros((self.lambdaa, 2))
+        offspring = np.zeros((self.lambdaa, 2)).astype(int)
         for i in range(self.lambdaa):
             p1 = self.selection_kTour(population, k)
             p2 = self.selection_kTour(population, k)
@@ -77,27 +76,14 @@ class TSP:
 
     """ Perform mutation, adding a random Gaussian perturbation. """
     def mutation(self, offspring, alpha):
-        ii = np.where(np.random.rand(np.size(offspring, 0)) <= alpha)
-        offspring[ii, :] = offspring[ii, :] + 10 * np.random.randn(np.size(ii),2)
-        offspring[ii, 0] = np.clip(offspring[ii, 0], 0, self.numCities)
-        offspring[ii, 1] = np.clip(offspring[ii, 1], 0, self.numCities)
-        return offspring
-
-    def mutation(self, offspring, alpha):
         i = np.where(np.random.rand(np.size(offspring, 0)) <= alpha)
         offspring[i, :] = np.random.suffle(offspring[i, :])
         return offspring
 
     """ Eliminate the unfit candidate solutions. """
-    def elimination(self, joinedPopulation, keep):
-        fvals = self.objf(joinedPopulation)
-        perm = np.argsort(fvals)
-        survivors = joinedPopulation[perm[0: keep - 1], :]
-        return survivors
-
     # TODO consider age-based elimination
     def elimination(self, population, k):
-        fvals = pop_fitness(population)
+        fvals = pop_fitness(population, self.distanceMatrix)
         sortedFitness = np.argsort(fvals)
         return population[sortedFitness[0: k - 1], :]
 
@@ -127,22 +113,35 @@ class TSP:
         # in case it got to a dead end, rerun
         return self.random_cycle()
 
-
-def pop_fitness(population):
-    return np.array([fitness(path) for path in population])
+def pop_fitness(population, distanceMatrix):
+    return np.array([fitness(path, distanceMatrix) for path in population])
 
 
 """ Compute the objective function of a candidate"""
-def fitness(path, distance_matrix):
-    sum = 0
-    for i in range(len(path) - 2):
-        if np.isinf(distance_matrix[path[i]][path[i + 1]]):
+def fitness(path, distanceMatrix):
+    sum = distanceMatrix[0, path[0]]
+    for i in range(len(path)-2):
+        if np.isinf(distanceMatrix[path[i]][path[i + 1]]):
             return np.inf
         else:
-            sum += distance_matrix[path[i]][path[i + 1]]
-    sum += distance_matrix[path[len(path) - 1], path[0]]  # cost from end of path back to begin of path
+            sum += distanceMatrix[path[i]][path[i + 1]]
+    sum += distanceMatrix[path[len(path) - 1]][0]  # cost from end of path back to begin of path
     return sum
 
 
-tsp = TSP(fitness, filename)
-tsp.optimize()
+def createRandomValidPath():
+    # random but check it's valid
+    return
+
+# tsp = TSP(fitness, filename)
+# tsp.optimize()
+
+tsp = TSP(fitness, "../data/tour50.csv")
+pop = tsp.selection(tsp.population, 5)
+print(pop.shape)
+print(np.unique(pop, axis=0).shape)
+
+
+
+
+
