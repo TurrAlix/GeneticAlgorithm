@@ -1,11 +1,8 @@
 import numpy as np
 import random
 import time
-from mpl_toolkits.mplot3d import Axes3D
-import matplotlib.pyplot as plt
-from matplotlib import cm
-from matplotlib.ticker import LinearLocator, FormatStrFormatter
 import Utilis
+
 
 def read_from_file(filename):
     # Read distance matrix from file.
@@ -13,6 +10,7 @@ def read_from_file(filename):
     distanceMatrix = np.loadtxt(file, delimiter=",")
     file.close()
     return distanceMatrix
+
 
 class TSP:
     """ Parameters """
@@ -31,9 +29,9 @@ class TSP:
     def optimize(self):
 
         # Initialize population
-        population = np.vstack([np.arange(1, self.numCities)] * self.lambdaa)
+        population = np.zeros((self.lambdaa, self.numCities))
         for i in range(self.lambdaa):
-            np.random.shuffle(population[i])
+            population[i, :] = self.random_cycle()
 
         for i in range(self.numIters):
             # The evolutionary algorithm
@@ -54,7 +52,7 @@ class TSP:
         print('Done')
 
     def selection_kTour(population, k):
-        randIndices = random.choices(range(np.size(population,0)), k = k)
+        randIndices = random.choices(range(np.size(population, 0)), k=k)
         best = np.argmin(pop_fitness(population[randIndices, :]))
         return population[best, :]
 
@@ -80,28 +78,28 @@ class TSP:
     """ Perform mutation, adding a random Gaussian perturbation. """
     def mutation(self, offspring, alpha):
         ii = np.where(np.random.rand(np.size(offspring, 0)) <= alpha)
-        offspring[ii, :] = offspring[ii, :] + 10*np.random.randn(np.size(ii),2)
+        offspring[ii, :] = offspring[ii, :] + 10 * np.random.randn(np.size(ii),2)
         offspring[ii, 0] = np.clip(offspring[ii, 0], 0, self.numCities)
         offspring[ii, 1] = np.clip(offspring[ii, 1], 0, self.numCities)
         return offspring
 
     def mutation(self, offspring, alpha):
         i = np.where(np.random.rand(np.size(offspring, 0)) <= alpha)
-        offspring[i,:] = np.random.suffle(offspring[i,:])
+        offspring[i, :] = np.random.suffle(offspring[i, :])
         return offspring
 
     """ Eliminate the unfit candidate solutions. """
     def elimination(self, joinedPopulation, keep):
         fvals = self.objf(joinedPopulation)
         perm = np.argsort(fvals)
-        survivors = joinedPopulation[perm[0:keep-1],:]
+        survivors = joinedPopulation[perm[0: keep - 1], :]
         return survivors
 
     # TODO consider age-based elimination
     def elimination(self, population, k):
         fvals = pop_fitness(population)
         sortedFitness = np.argsort(fvals)
-        return population[sortedFitness[0:k-1], :]
+        return population[sortedFitness[0: k - 1], :]
 
     def random_cycle(self):
         path_len = self.distanceMatrix.shape[0]
@@ -114,7 +112,7 @@ class TSP:
             if u == 0 and expanded:
                 # found a cycle
                 if len(path) == path_len + 1:
-                    return np.array(path)
+                    return np.array(path[1:-1])
             if u in expanded:
                 continue
             expanded.add(u)
@@ -137,7 +135,7 @@ def pop_fitness(population):
 """ Compute the objective function of a candidate"""
 def fitness(path, distance_matrix):
     sum = 0
-    for i in range(len(path)-2):
+    for i in range(len(path) - 2):
         if np.isinf(distance_matrix[path[i]][path[i + 1]]):
             return np.inf
         else:
