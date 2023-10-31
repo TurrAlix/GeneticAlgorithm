@@ -58,21 +58,21 @@ class TSP:
         best = np.argmin(pop_fitness(population[randIndices, :]))
         return population[best, :]
 
-    """ Perform k-tournament selection to select pairs of parents. """    
+    """ Perform k-tournament selection to select pairs of parents. """
     def selection(self, population, k):        # CHECK MU
         selected = np.zeros((self.mu, self.numCities))
         for i in range(self.mu):
             selected[i, :] = self.selection_kTour(population, k)
         return selected
 
-    """ Perform box crossover as in the slides. """    
+    """ Perform box crossover as in the slides. """
     def crossover(self, population, k):
         offspring = np.zeros((self.lambdaa, 2))
         for i in range(self.lambdaa):
             p1 = self.selection_kTour(population, k)
             p2 = self.selection_kTour(population, k)
             subpath = Utilis.longest_common_subpath(p1, p2)
-            restPath = np.setdiff1d(p1, subpath)    
+            restPath = np.setdiff1d(p1, subpath)
             np.random.shuffle(restPath)
             offspring[i, :] = np.append(subpath, restPath)
         return offspring
@@ -80,16 +80,15 @@ class TSP:
     """ Perform mutation, adding a random Gaussian perturbation. """
     def mutation(self, offspring, alpha):
         ii = np.where(np.random.rand(np.size(offspring, 0)) <= alpha)
-        offspring[ii,:] = offspring[ii,:] + 10*np.random.randn(np.size(ii),2)
-        offspring[ii,0] = np.clip(offspring[ii,0], 0, self.numCities)
-        offspring[ii,1] = np.clip(offspring[ii,1], 0, self.numCities)
+        offspring[ii, :] = offspring[ii, :] + 10*np.random.randn(np.size(ii),2)
+        offspring[ii, 0] = np.clip(offspring[ii, 0], 0, self.numCities)
+        offspring[ii, 1] = np.clip(offspring[ii, 1], 0, self.numCities)
         return offspring
-    
+
     def mutation(self, offspring, alpha):
         i = np.where(np.random.rand(np.size(offspring, 0)) <= alpha)
         offspring[i,:] = np.random.suffle(offspring[i,:])
         return offspring
-
 
     """ Eliminate the unfit candidate solutions. """
     def elimination(self, joinedPopulation, keep):
@@ -97,16 +96,43 @@ class TSP:
         perm = np.argsort(fvals)
         survivors = joinedPopulation[perm[0:keep-1],:]
         return survivors
-    
+
     # TODO consider age-based elimination
     def elimination(self, population, k):
         fvals = pop_fitness(population)
         sortedFitness = np.argsort(fvals)
         return population[sortedFitness[0:k-1], :]
 
+    def random_cycle(self):
+        path_len = self.distanceMatrix.shape[0]
+        nodes = np.arange(path_len)
+        frontier = [(0, [0])]
+        expanded = set()
+
+        while frontier:
+            u, path = frontier.pop()
+            if u == 0 and expanded:
+                # found a cycle
+                if len(path) == path_len + 1:
+                    return np.array(path)
+            if u in expanded:
+                continue
+            expanded.add(u)
+
+            # loop through the neighbours at a random order, to result to order in the frontier
+            np.random.shuffle(nodes)
+            for v in nodes:
+                if (v != u) and (self.distanceMatrix[u][v] != np.inf):
+                    # this is a neighbour
+                    frontier.append((v, path + [v]))
+
+        # in case it got to a dead end, rerun
+        return self.random_cycle()
+
 
 def pop_fitness(population):
     return np.array([fitness(path) for path in population])
+
 
 """ Compute the objective function of a candidate"""
 def fitness(path, distance_matrix):
@@ -119,10 +145,6 @@ def fitness(path, distance_matrix):
     sum += distance_matrix[path[len(path) - 1], path[0]]  # cost from end of path back to begin of path
     return sum
 
-
-def createRandomValidPath():
-    # random but check it's valid
-    return
 
 tsp = TSP(fitness, filename)
 tsp.optimize()
