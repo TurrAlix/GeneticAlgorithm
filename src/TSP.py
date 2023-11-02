@@ -18,8 +18,8 @@ class TSP:
         self.alpha = 0.05             # Mutation probability
         self.lambdaa = 200           # Population size
         self.mu = self.lambdaa * 2    # Offspring size        WHY THE DOUBLE (COULD BE THE HALF?)
-        self.k = 2                    # Tournament selection
-        self.numIters = 50            # Maximum number of iterations
+        self.k = 5                    # Tournament selection
+        self.numIters = 10            # Maximum number of iterations
         self.objf = fitness                # Objective function
 
         self.distanceMatrix = read_from_file(filename)
@@ -36,18 +36,19 @@ class TSP:
             # The evolutionary algorithm
             start = time.time()
 
-            selected = self.selection(self.population, self.k)
-            offspring = self.crossover(selected)
-            joinedPopulation = np.vstack((self.mutation(offspring, self.alpha), self.population))    # joinedPopulation = polutation + children + mutated
-            self.population = self.elimination(joinedPopulation, self.lambdaa)                         # population = joinedPopulation - eliminated
+            selected = self.selection(self.population, self.k)                  # selected = initial*2
+            offspring = self.crossover(selected, self.k)                        # offspring = initial 
+            joinedPopulation = np.vstack((self.mutation(offspring, self.alpha), self.population))    # joinedPopulation = polutation + mutated children = lambdaa*2
+            self.population = self.elimination(joinedPopulation, self.lambdaa)                         # population = joinedPopulation - eliminated = lambdaa
 
             itT = time.time() - start
 
             # Show progress
-            fvals = np.array([self.objf(path) for path in self.population])
+            # fvals = np.array([self.objf(path) for path in self.population])
+            fvals = pop_fitness(self.population, self.distanceMatrix)
             meanObj = np.mean(fvals)
             bestObj = np.min(fvals)
-            print(f'{itT: .2f}s:\t Mean fitness = {meanObj: .5f} \t Best fitness = {bestObj: .5f}')
+            print(f'{itT: .2f}s:\t Mean fitness = {meanObj: .5f} \t Best fitness = {bestObj: .5f} \t pop shape = {tsp.population.shape}')
         print('Done')
 
     def selection_kTour(self, population, k):
@@ -64,28 +65,31 @@ class TSP:
 
     """ Perform box crossover as in the slides. """
     def crossover(self, population, k):
-        offspring = np.zeros((self.lambdaa, 2)).astype(int)
+        offspring = np.zeros((self.lambdaa, self.numCities - 1)).astype(int)
         for i in range(self.lambdaa):
             p1 = self.selection_kTour(population, k)
-            p2 = self.selection_kTour(population, k)
+            p2 = self.selection_kTour(population, k) 
             subpath = Utilis.longest_common_subpath(p1, p2)
             restPath = np.setdiff1d(p1, subpath)
             np.random.shuffle(restPath)
+            # print(subpath.shape)
+            # print(restPath.shape)
+            # print(offspring.shape)
             offspring[i, :] = np.append(subpath, restPath)
         return offspring
 
     """ Perform mutation, adding a random Gaussian perturbation. """
     def mutation(self, offspring, alpha):
-        i = np.where(np.random.rand(np.size(offspring, 0)) <= alpha)
-        offspring[i, :] = np.random.suffle(offspring[i, :])
+        i = np.where(np.random.rand(np.size(offspring, 0)) <= alpha)[0]
+        offspring[i, :] = self.random_cycle()
         return offspring
 
     """ Eliminate the unfit candidate solutions. """
     # TODO consider age-based elimination
-    def elimination(self, population, k):
+    def elimination(self, population, lambdaa):
         fvals = pop_fitness(population, self.distanceMatrix)
         sortedFitness = np.argsort(fvals)
-        return population[sortedFitness[0: k - 1], :]
+        return population[sortedFitness[0: lambdaa], :]     # TODO check: lambdaa - 1
 
     def random_cycle(self):
         path_len = self.distanceMatrix.shape[0]
@@ -129,19 +133,36 @@ def fitness(path, distanceMatrix):
     return sum
 
 
-def createRandomValidPath():
-    # random but check it's valid
-    return
-
-# tsp = TSP(fitness, filename)
-# tsp.optimize()
-
 tsp = TSP(fitness, "../data/tour50.csv")
-pop = tsp.selection(tsp.population, 5)
-print(pop.shape)
-print(np.unique(pop, axis=0).shape)
 
+# Testing selection
+# pop = tsp.selection(tsp.population, 5)
+# print(pop.shape)
+# print(np.unique(pop, axis=0).shape)
 
+# Testing mutation
+# np.set_printoptions(threshold=np.inf)
+# pop1 = tsp.population
+# print(pop1)
+# pop2  = tsp.mutation(tsp.population, tsp.alpha)
+# print(pop2)
 
+# Testing crossover
+# pop1 = tsp.population
+# pop2 = tsp.crossover(pop1, tsp.k)
+# print(pop2)
+# print(pop2.shape)
+
+# Testing elimination
+# pop2 = tsp.elimination(pop1, tsp.lambdaa)
+# print(pop1.shape)
+# print(pop2.shape)
+# mean_fitness1 = sum(pop_fitness(pop1, tsp.distanceMatrix)) / len(pop1)
+# print(mean_fitness1)
+# pop2 = tsp.elimination(pop1, tsp.lambdaa)
+# mean_fitness2 = sum(pop_fitness(pop2, tsp.distanceMatrix)) / len(pop2)
+# print(mean_fitness2)
+
+tsp.optimize()
 
 
