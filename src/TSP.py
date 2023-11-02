@@ -37,7 +37,7 @@ class TSP:
             start = time.time()
 
             selected = self.selection(self.population, self.k)                  # selected = initial*2
-            offspring = self.crossover(selected, self.k)                        # offspring = initial 
+            offspring = self.crossover(selected, self.k)                        # offspring = initial
             joinedPopulation = np.vstack((self.mutation(offspring, self.alpha), self.population))    # joinedPopulation = polutation + mutated children = lambdaa*2
             self.population = self.elimination(joinedPopulation, self.lambdaa)                         # population = joinedPopulation - eliminated = lambdaa
 
@@ -57,25 +57,26 @@ class TSP:
         return population[randIndices[best], :]
 
     """ Perform k-tournament selection to select pairs of parents. """
-    def selection(self, population, k):        
+    def selection(self, population, k):
         selected = np.zeros((self.mu, self.numCities - 1)).astype(int)
         for i in range(self.mu):
             selected[i, :] = self.selection_kTour(population, k)
         return selected
 
-    """ Perform box crossover as in the slides. """
     def crossover(self, population, k):
-        offspring = np.zeros((self.lambdaa, self.numCities - 1)).astype(int)
+        """Keeps the longest common subpath of two good parents and randomly connects the rest."""
+        offspring = np.zeros((self.lambdaa, 2)).astype(int)
         for i in range(self.lambdaa):
+            # 1. find 2 good parents with k-tour
             p1 = self.selection_kTour(population, k)
-            p2 = self.selection_kTour(population, k) 
+            p2 = self.selection_kTour(population, k)
+            # 2. find their common longest subpath
             subpath = Utilis.longest_common_subpath(p1, p2)
-            restPath = np.setdiff1d(p1, subpath)
-            np.random.shuffle(restPath)
-            # print(subpath.shape)
-            # print(restPath.shape)
-            # print(offspring.shape)
-            offspring[i, :] = np.append(subpath, restPath)
+            # 3. expand it until the cycle is closed, using DFS
+            goal = subpath[0]
+            frontier = [(subpath[-1], subpath)]
+            expanded = set(subpath)
+            offspring[i, :] = self.random_cycle(goal, frontier, expanded)
         return offspring
 
     """ Perform mutation, adding a random Gaussian perturbation. """
@@ -91,16 +92,20 @@ class TSP:
         sortedFitness = np.argsort(fvals)
         return population[sortedFitness[0: lambdaa], :]     # TODO check: lambdaa - 1
 
-    def random_cycle(self):
+    def random_cycle(self, goal=0, frontier=None, expanded=None):
         path_len = self.distanceMatrix.shape[0]
         nodes = np.arange(path_len)
-        frontier = [(0, [0])]
-        expanded = set()
+        if (frontier is None) and (expanded is None):
+            # frontier is a stack implemented as a list, using pop() and append().
+            # The items of the stack are (node, goal-to-node-path) tuples.
+            frontier = [(goal, [goal])]
+            expanded = set()
 
         while frontier:
             u, path = frontier.pop()
-            if u == 0 and expanded:
-                # found a cycle
+            if u == goal:
+                # found a cycle, but it has to contail all the nodes
+                # path_len + 1, because the goal will be added also at the end
                 if len(path) == path_len + 1:
                     return np.array(path[1:-1])
             if u in expanded:
