@@ -15,12 +15,12 @@ def read_from_file(filename):
 class TSP:
     """ Parameters """
     def __init__(self, fitness, filename):
-        self.alpha = 0.15       # Mutation probability
-        self.mutationratios = [5, 1, 1, 15]  # swap, insert, scramble, inversion - mutation ratio
+        self.alpha = 0.20       # Mutation probability
+        self.mutationratios = [7, 1, 1, 15]  # swap, insert, scramble, inversion - mutation ratio
         self.lambdaa = 100          # Population size
         self.mu = self.lambdaa * 2    # Offspring size        WHY THE DOUBLE (COULD BE THE HALF?)
         self.k = 2                    # Tournament selection
-        self.numIters = 500            # Maximum number of iterations
+        self.numIters = 1000            # Maximum number of iterations
         self.objf = fitness                # Objective function
 
         self.distanceMatrix = read_from_file(filename)
@@ -48,7 +48,10 @@ class TSP:
             startmutate = time.time()
             joinedPopulation = np.vstack((self.mutate(offspring), self.population))    # joinedPopulation = polutation + mutated children = lambdaa*2
             mutatetime = time.time() - startmutate
+
+            startelemination = time.time()
             self.population = self.elimination(joinedPopulation, self.lambdaa)                         # population = joinedPopulation - eliminated = lambdaa
+            elimtime = time.time() - startelemination
 
             itT = time.time() - start
 
@@ -57,7 +60,7 @@ class TSP:
             fvals = pop_fitness(self.population, self.distanceMatrix)
             meanObj = np.mean(fvals)
             bestObj = np.min(fvals)
-            print(f'{i + 1}) {itT: .2f}s:\t Mean fitness = {meanObj: .5f} \t Best fitness = {bestObj: .5f} \t pop shape = {tsp.population.shape} \t selection = {selectiontime : .2f}s, cross = {crossstime: .2f}s, mutate = {mutatetime: .2f}s')
+            print(f'{i + 1}) {itT: .2f}s:\t Mean fitness = {meanObj: .5f} \t Best fitness = {bestObj: .5f} \t pop shape = {tsp.population.shape} \t select: {selectiontime : .3f}s, cross: {crossstime: .3f}s, mutate: {mutatetime: .3f}s, eliminate: {elimtime: .3f}s')
         print('Done')
 
     def selection_kTour(self, population, k):
@@ -138,9 +141,8 @@ class TSP:
 
     def mutation_insert(self, path):
         cp1, cp2 = sorted(random.sample(range(self.numCities - 1), 2))  # Random indexes
-        value = path[cp1]
         np.delete(path, cp1)
-        np.insert(path, cp2, value)
+        np.insert(path, cp2, path[cp1])
         return path
 
     def mutation_scramble(self, path):
@@ -196,20 +198,13 @@ class TSP:
 def pop_fitness(population, distanceMatrix):
     return np.array([fitness(path, distanceMatrix) for path in population])
 
-
 """ Compute the objective function of a candidate"""
 def fitness(path, distanceMatrix):
-    sum = distanceMatrix[0, path[0]]
+    sum = distanceMatrix[0, path[0]] + distanceMatrix[path[len(path) - 1]][0]
     for i in range(len(path)-2):
-        if np.isinf(distanceMatrix[path[i]][path[i + 1]]):
-            return np.inf
-        else:
-            sum += distanceMatrix[path[i]][path[i + 1]]
-    sum += distanceMatrix[path[len(path) - 1]][0]  # cost from end of path back to begin of path
+        sum += distanceMatrix[path[i]][path[i + 1]]
     return sum
 
-
-tsp = TSP(fitness, "../data/tour50.csv")
 
 # Testing selection
 # pop = tsp.selection(tsp.population, 5)
@@ -239,7 +234,9 @@ tsp = TSP(fitness, "../data/tour50.csv")
 # mean_fitness2 = sum(pop_fitness(pop2, tsp.distanceMatrix)) / len(pop2)
 # print(mean_fitness2)
 
+tsp = TSP(fitness, "../data/tour50.csv")
 tsp.optimize()
+
 
 
 
