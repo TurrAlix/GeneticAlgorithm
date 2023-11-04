@@ -15,11 +15,12 @@ def read_from_file(filename):
 class TSP:
     """ Parameters """
     def __init__(self, fitness, filename):
-        self.alpha = 0.05           # Mutation probability
-        self.lambdaa = 200           # Population size
+        self.alpha = 0.15       # Mutation probability
+        self.mutationratios = [5, 1, 1, 15]  # swap, insert, scramble, inversion - mutation ratio
+        self.lambdaa = 100          # Population size
         self.mu = self.lambdaa * 2    # Offspring size        WHY THE DOUBLE (COULD BE THE HALF?)
-        self.k = 4                   # Tournament selection
-        self.numIters = 150            # Maximum number of iterations
+        self.k = 2                    # Tournament selection
+        self.numIters = 500            # Maximum number of iterations
         self.objf = fitness                # Objective function
 
         self.distanceMatrix = read_from_file(filename)
@@ -45,7 +46,7 @@ class TSP:
             crossstime = time.time() - startcross
 
             startmutate = time.time()
-            joinedPopulation = np.vstack((self.mutation2(offspring, self.alpha), self.population))    # joinedPopulation = polutation + mutated children = lambdaa*2
+            joinedPopulation = np.vstack((self.mutate(offspring), self.population))    # joinedPopulation = polutation + mutated children = lambdaa*2
             mutatetime = time.time() - startmutate
             self.population = self.elimination(joinedPopulation, self.lambdaa)                         # population = joinedPopulation - eliminated = lambdaa
 
@@ -121,16 +122,38 @@ class TSP:
         offspring[i, :] = self.random_cycle()
         return offspring
 
-    def mutation2(self, offspring, alpha):
-        i = np.where(np.random.rand(np.size(offspring, 0)) <= alpha)[0]
-        cp1, cp2 = sorted(random.sample(range(self.numCities - 1), 2))  # random indexes
-        for index in i:
-            selected = offspring[index]
-            temp = selected[cp1]
-            selected[cp1] = selected[cp2]
-            selected[cp2] = temp
-            offspring[index] = selected
+    def mutate(self, offspring):
+        for i in range(len(offspring)):
+            if random.random() <= self.alpha:  # Check if the random value is less than or equal to alpha
+                mutation_type = random.choices(
+                    [self.mutation_swap, self.mutation_insert, self.mutation_scramble, self.mutation_inversion],
+                    self.mutationratios)[0]
+                offspring[i] = mutation_type(offspring[i])
         return offspring
+
+    def mutation_swap(self, path):
+        cp1, cp2 = sorted(random.sample(range(self.numCities - 1), 2))  # Random indexes
+        path[cp1], path[cp2] = path[cp2], path[cp1]
+        return path
+
+    def mutation_insert(self, path):
+        cp1, cp2 = sorted(random.sample(range(self.numCities - 1), 2))  # Random indexes
+        value = path[cp1]
+        np.delete(path, cp1)
+        np.insert(path, cp2, value)
+        return path
+
+    def mutation_scramble(self, path):
+        cp1, cp2 = sorted(random.sample(range(self.numCities - 1), 2))  # Random indexes
+        subpath = path[cp1:cp2 + 1]
+        random.shuffle(subpath)
+        path[cp1:cp2 + 1] = subpath
+        return path
+
+    def mutation_inversion(self, path):
+        cp1, cp2 = sorted(random.sample(range(self.numCities - 1), 2))
+        path[cp1:cp2 + 1] = path[cp1:cp2 + 1][::-1]
+        return path
 
 
     """ Eliminate the unfit candidate solutions. """
