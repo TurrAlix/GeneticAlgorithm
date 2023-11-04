@@ -40,9 +40,13 @@ class TSP:
             selected = self.selection(self.population, self.k)                  # selected = initial*2
             selectiontime = time.time() - startselection
 
+            startcross = time.time()
             offspring = self.pmx_crossover(selected, self.k)                        # offspring = initial
+            crossstime = time.time() - startcross
 
+            startmutate = time.time()
             joinedPopulation = np.vstack((self.mutation2(offspring, self.alpha), self.population))    # joinedPopulation = polutation + mutated children = lambdaa*2
+            mutatetime = time.time() - startmutate
             self.population = self.elimination(joinedPopulation, self.lambdaa)                         # population = joinedPopulation - eliminated = lambdaa
 
             itT = time.time() - start
@@ -52,7 +56,7 @@ class TSP:
             fvals = pop_fitness(self.population, self.distanceMatrix)
             meanObj = np.mean(fvals)
             bestObj = np.min(fvals)
-            print(f'{i + 1}) {itT: .2f}s:\t Mean fitness = {meanObj: .5f} \t Best fitness = {bestObj: .5f} \t pop shape = {tsp.population.shape} \t selection time = {selectiontime : .2f}s')
+            print(f'{i + 1}) {itT: .2f}s:\t Mean fitness = {meanObj: .5f} \t Best fitness = {bestObj: .5f} \t pop shape = {tsp.population.shape} \t selection = {selectiontime : .2f}s, cross = {crossstime: .2f}s, mutate = {mutatetime: .2f}s')
         print('Done')
 
     def selection_kTour(self, population, k):
@@ -106,9 +110,7 @@ class TSP:
                         else:
                             k = p2[ind_j2[0]]
                             j = p1[ind_j2[0]]
-            for k in range(len(child)):
-                if not child[k]:
-                    child[k] = p2[k]
+            child[child == 0] = p2[child == 0]
             offspring[p] = child
         return offspring
 
