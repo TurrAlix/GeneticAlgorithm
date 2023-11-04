@@ -15,11 +15,11 @@ def read_from_file(filename):
 class TSP:
     """ Parameters """
     def __init__(self, fitness, filename):
-        self.alpha = 0.05             # Mutation probability
+        self.alpha = 0.05           # Mutation probability
         self.lambdaa = 200           # Population size
         self.mu = self.lambdaa * 2    # Offspring size        WHY THE DOUBLE (COULD BE THE HALF?)
-        self.k = 5                    # Tournament selection
-        self.numIters = 10            # Maximum number of iterations
+        self.k = 4                   # Tournament selection
+        self.numIters = 150            # Maximum number of iterations
         self.objf = fitness                # Objective function
 
         self.distanceMatrix = read_from_file(filename)
@@ -36,9 +36,13 @@ class TSP:
             # The evolutionary algorithm
             start = time.time()
 
+            startselection = time.time()
             selected = self.selection(self.population, self.k)                  # selected = initial*2
-            offspring = self.crossover(selected, self.k)                        # offspring = initial
-            joinedPopulation = np.vstack((self.mutation(offspring, self.alpha), self.population))    # joinedPopulation = polutation + mutated children = lambdaa*2
+            selectiontime = time.time() - startselection
+
+            offspring = self.pmx_crossover(selected, self.k)                        # offspring = initial
+
+            joinedPopulation = np.vstack((self.mutation2(offspring, self.alpha), self.population))    # joinedPopulation = polutation + mutated children = lambdaa*2
             self.population = self.elimination(joinedPopulation, self.lambdaa)                         # population = joinedPopulation - eliminated = lambdaa
 
             itT = time.time() - start
@@ -48,7 +52,7 @@ class TSP:
             fvals = pop_fitness(self.population, self.distanceMatrix)
             meanObj = np.mean(fvals)
             bestObj = np.min(fvals)
-            print(f'{itT: .2f}s:\t Mean fitness = {meanObj: .5f} \t Best fitness = {bestObj: .5f} \t pop shape = {tsp.population.shape}')
+            print(f'{i + 1}) {itT: .2f}s:\t Mean fitness = {meanObj: .5f} \t Best fitness = {bestObj: .5f} \t pop shape = {tsp.population.shape} \t selection time = {selectiontime : .2f}s')
         print('Done')
 
     def selection_kTour(self, population, k):
@@ -79,11 +83,53 @@ class TSP:
             offspring[i, :] = self.random_cycle(goal, frontier, expanded)
         return offspring
 
+
+    def pmx_crossover(self, selected, k):
+        offspring = np.zeros((self.lambdaa, self.numCities - 1)).astype(int)
+        parents = list(zip(selected[::2], selected[1::2]))
+        for p in range(len(parents)):
+            p1, p2 = parents[p][0], parents[p][1]
+            cp1, cp2 = sorted(random.sample(range(len(p1)), 2))  # random crossover points
+            seg_p1, seg_p2 = p1[cp1:cp2 + 1], p2[cp1:cp2 + 1]
+            child = np.zeros(len(p1))
+            child[cp1:cp2 + 1] = seg_p1
+            for ii in range(len(seg_p2)):
+                i = k = seg_p2[ii]
+                if i not in seg_p1:
+                    j = seg_p1[ii]
+                    assigned = False
+                    while not assigned:
+                        ind_j2 = np.where(p2 == j)[0]
+                        if ind_j2[0] < cp1 or cp2 < ind_j2[0]:
+                            child[ind_j2] = i
+                            assigned = True
+                        else:
+                            k = p2[ind_j2[0]]
+                            j = p1[ind_j2[0]]
+            for k in range(len(child)):
+                if not child[k]:
+                    child[k] = p2[k]
+            offspring[p] = child
+        return offspring
+
+
     """ Perform mutation, adding a random Gaussian perturbation. """
     def mutation(self, offspring, alpha):
         i = np.where(np.random.rand(np.size(offspring, 0)) <= alpha)[0]
         offspring[i, :] = self.random_cycle()
         return offspring
+
+    def mutation2(self, offspring, alpha):
+        i = np.where(np.random.rand(np.size(offspring, 0)) <= alpha)[0]
+        cp1, cp2 = sorted(random.sample(range(self.numCities - 1), 2))  # random indexes
+        for index in i:
+            selected = offspring[index]
+            temp = selected[cp1]
+            selected[cp1] = selected[cp2]
+            selected[cp2] = temp
+            offspring[index] = selected
+        return offspring
+
 
     """ Eliminate the unfit candidate solutions. """
     # TODO consider age-based elimination
@@ -169,5 +215,7 @@ tsp = TSP(fitness, "../data/tour50.csv")
 # print(mean_fitness2)
 
 tsp.optimize()
+
+
 
 
