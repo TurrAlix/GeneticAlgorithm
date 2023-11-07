@@ -2,6 +2,7 @@ import numpy as np
 import random
 import time
 import Utilis
+import matplotlib.pyplot as plt
 
 
 def read_from_file(filename):
@@ -17,10 +18,10 @@ class TSP:
     def __init__(self, fitness, filename):
         self.alpha = 0.20       # Mutation probability
         self.mutationratios = [7, 1, 1, 15]  # swap, insert, scramble, inversion - mutation ratio
-        self.lambdaa = 100          # Population size
+        self.lambdaa = 100         # Population size
         self.mu = self.lambdaa * 2    # Offspring size        WHY THE DOUBLE (COULD BE THE HALF?)
-        self.k = 2                    # Tournament selection
-        self.numIters = 1000            # Maximum number of iterations
+        self.k = 2                   # Tournament selection
+        self.numIters = 800            # Maximum number of iterations
         self.objf = fitness                # Objective function
 
         self.distanceMatrix = read_from_file(filename)
@@ -33,6 +34,9 @@ class TSP:
 
     """ The main evolutionary algorithm loop """
     def optimize(self):
+        mean_values = []
+        best_values = []
+
         for i in range(self.numIters):
             # The evolutionary algorithm
             start = time.time()
@@ -61,7 +65,11 @@ class TSP:
             meanObj = np.mean(fvals)
             bestObj = np.min(fvals)
             print(f'{i + 1}) {itT: .2f}s:\t Mean fitness = {meanObj: .5f} \t Best fitness = {bestObj: .5f} \t pop shape = {tsp.population.shape} \t select: {selectiontime : .3f}s, cross: {crossstime: .3f}s, mutate: {mutatetime: .3f}s, eliminate: {elimtime: .3f}s')
+            best_values.append(bestObj)
+            mean_values.append(meanObj)
+
         print('Done')
+        return [best_values, mean_values]
 
     def selection_kTour(self, population, k):
         randIndices = random.choices(range(np.size(population,0)), k = k)
@@ -234,10 +242,28 @@ def fitness(path, distanceMatrix):
 # mean_fitness2 = sum(pop_fitness(pop2, tsp.distanceMatrix)) / len(pop2)
 # print(mean_fitness2)
 
+
+start = time.time()
+
 tsp = TSP(fitness, "../data/tour50.csv")
-tsp.optimize()
 
+# Store the objective values for each run
+objective_values = tsp.optimize()
 
+# Calculate the mean and best objective values over time
+mean_values = objective_values[1]
+best_values = objective_values[0]
 
+# Create a time-based plot
+iteration_numbers = np.arange(len(mean_values))
 
+plt.figure(figsize=(12, 6))
+plt.plot(iteration_numbers, mean_values, label='Mean Fitness', linestyle='-', color='b')
+plt.plot(iteration_numbers, best_values, label='Best Fitness', linestyle='-', color='g')
+plt.xlabel('Iteration')
+plt.ylabel('Fitness Value')
+plt.title('Convergence Graph: Mean and Best Fitness ')
+plt.legend()
+print( time.time() - start)
+plt.show()
 
